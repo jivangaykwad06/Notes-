@@ -2,7 +2,6 @@
 ADMIN
 ========================= */
 
-const ADMIN_PASSWORD = "1234";
 
 let isAdmin = false;
 let editingId = null;
