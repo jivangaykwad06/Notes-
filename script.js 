@@ -1,0 +1,846 @@
+/* =========================
+ADMIN
+========================= */
+
+const ADMIN_PASSWORD = "1234";
+
+let isAdmin = false;
+let editingId = null;
+let selectedSubject = "All";
+
+/* =========================
+NOTES
+========================= */
+
+let notes =
+JSON.parse(localStorage.getItem("noteVaultNotes")) || [
+
+{
+    id: 1,
+    title: "Artificial Intelligence Unit 1",
+    subject: "AI",
+    type: "PDF",
+    file: "",
+    favorite: false
+},
+
+{
+    id: 2,
+    title: "Computer Networks — Data Link Layer",
+    subject: "Computer Networks",
+    type: "PDF",
+    file: "",
+    favorite: false
+},
+
+{
+    id: 3,
+    title: "DBMS Important Questions",
+    subject: "DBMS",
+    type: "PDF",
+    file: "",
+    favorite: true
+}
+
+];
+
+/* =========================
+SUBJECT ICONS
+========================= */
+
+const subjectIcons = {
+
+"All": "📚",
+"AI": "🤖",
+"Computer Networks": "🌐",
+"DBMS": "🗄️",
+"DSA": "🌳",
+"TOC": "⚙️",
+"IoT": "📡",
+"Other": "📁"
+
+};
+
+/* =========================
+SUBJECTS
+========================= */
+
+function renderSubjects() {
+
+const box =
+    document.getElementById("subjects");
+
+const subjects = [
+    "All",
+    "AI",
+    "Computer Networks",
+    "DBMS",
+    "DSA",
+    "TOC",
+    "IoT",
+    "Other"
+];
+
+box.innerHTML = subjects.map(subject => {
+
+    const count =
+        subject === "All"
+        ? notes.length
+        : notes.filter(
+            note => note.subject === subject
+        ).length;
+
+    return `
+
+        <div
+            class="subject ${
+                selectedSubject === subject
+                ? "active"
+                : ""
+            }"
+            onclick="selectSubject('${subject}')"
+        >
+
+            <div class="subject-icon">
+                ${subjectIcons[subject]}
+            </div>
+
+            <strong>${subject}</strong>
+
+            <small>
+                ${count} notes
+            </small>
+
+        </div>
+
+    `;
+
+}).join("");
+
+}
+
+function selectSubject(subject) {
+
+selectedSubject = subject;
+
+renderSubjects();
+renderNotes();
+
+}
+
+/* =========================
+NOTES DISPLAY
+========================= */
+
+function renderNotes() {
+
+const box =
+    document.getElementById("notes");
+
+const search =
+    document
+    .getElementById("search")
+    .value
+    .toLowerCase();
+
+const filtered =
+    notes.filter(note => {
+
+        const subjectMatch =
+            selectedSubject === "All" ||
+            note.subject === selectedSubject;
+
+        const searchMatch =
+            note.title
+            .toLowerCase()
+            .includes(search) ||
+
+            note.subject
+            .toLowerCase()
+            .includes(search);
+
+        return subjectMatch && searchMatch;
+
+    });
+
+document.getElementById("resultText")
+    .textContent =
+    `${filtered.length} found`;
+
+if (filtered.length === 0) {
+
+    box.innerHTML = `
+
+        <div class="empty">
+
+            <div class="empty-icon">
+                📭
+            </div>
+
+            <p>No notes found</p>
+
+        </div>
+
+    `;
+
+    return;
+}
+
+
+box.innerHTML =
+    filtered.map(note => `
+
+    <div class="note">
+
+        <div class="note-top">
+
+            <div class="note-info">
+
+                <div class="file-icon">
+
+                    ${
+                        note.type === "PDF"
+                        ? "📄"
+                        : "🖼️"
+                    }
+
+                </div>
+
+                <div>
+
+                    <h4>
+                        ${escapeHTML(note.title)}
+                    </h4>
+
+                    <p>
+                        ${escapeHTML(note.subject)}
+                        • ${note.type}
+                    </p>
+
+                </div>
+
+            </div>
+
+            <button
+                class="favorite"
+                onclick="favoriteNote(${note.id})"
+            >
+
+                ${
+                    note.favorite
+                    ? "❤️"
+                    : "🤍"
+                }
+
+            </button>
+
+        </div>
+
+
+        <div class="note-bottom">
+
+            <span class="tag">
+                ${escapeHTML(note.subject)}
+            </span>
+
+            <div class="note-actions">
+
+                <button
+                    class="small-btn"
+                    onclick="viewNote(${note.id})"
+                >
+                    👁 View
+                </button>
+
+                ${
+                    isAdmin
+                    ?
+                    `
+
+                    <button
+                        class="small-btn"
+                        onclick="editNote(${note.id})"
+                    >
+                        ✏️
+                    </button>
+
+                    <button
+                        class="small-btn delete"
+                        onclick="deleteNote(${note.id})"
+                    >
+                        🗑️
+                    </button>
+
+                    `
+                    :
+                    ""
+                }
+
+            </div>
+
+        </div>
+
+    </div>
+
+`).join("");
+
+updateStats();
+
+}
+
+/* =========================
+STATISTICS
+========================= */
+
+function updateStats() {
+
+document.getElementById("noteCount")
+    .textContent = notes.length;
+
+const subjects =
+    new Set(
+        notes.map(note => note.subject)
+    );
+
+document.getElementById("subjectCount")
+    .textContent = subjects.size;
+
+}
+
+/* =========================
+LOGIN
+========================= */
+
+function openLogin() {
+
+if (isAdmin) {
+
+    isAdmin = false;
+
+    document.getElementById("fab")
+        .style.display = "none";
+
+    renderNotes();
+
+    showToast("Admin mode locked 🔒");
+
+    return;
+}
+
+document
+    .getElementById("loginModal")
+    .classList.add("show");
+
+}
+
+function login() {
+
+const password =
+    document
+    .getElementById("password")
+    .value;
+
+if (password === ADMIN_PASSWORD) {
+
+    isAdmin = true;
+
+    document.getElementById("fab")
+        .style.display = "block";
+
+    closeModal("loginModal");
+
+    document.getElementById("password")
+        .value = "";
+
+    renderNotes();
+
+    showToast(
+        "Admin mode activated 🔓"
+    );
+
+} else {
+
+    showToast(
+        "Incorrect password ❌"
+    );
+
+}
+
+}
+
+/* =========================
+ADD NOTE
+========================= */
+
+function openNoteModal() {
+
+if (!isAdmin) {
+
+    openLogin();
+
+    return;
+}
+
+editingId = null;
+
+document.getElementById("modalTitle")
+    .textContent = "Add Note";
+
+document.getElementById("noteTitle")
+    .value = "";
+
+document.getElementById("noteFile")
+    .value = "";
+
+document.getElementById("fileName")
+    .textContent = "";
+
+document.getElementById("noteModal")
+    .classList.add("show");
+
+}
+
+/* =========================
+SAVE NOTE
+========================= */
+
+function saveNote() {
+
+const title =
+    document.getElementById("noteTitle")
+    .value
+    .trim();
+
+const subject =
+    document.getElementById("noteSubject")
+    .value;
+
+const fileInput =
+    document.getElementById("noteFile");
+
+
+if (!title) {
+
+    showToast(
+        "Enter note title"
+    );
+
+    return;
+}
+
+
+let fileData = "";
+let fileType = "PDF";
+
+
+if (fileInput.files.length) {
+
+    const file =
+        fileInput.files[0];
+
+    fileType =
+        file.type.startsWith("image/")
+        ? "IMAGE"
+        : "PDF";
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = function(e) {
+
+        fileData =
+            e.target.result;
+
+        completeSave(
+            title,
+            subject,
+            fileData,
+            fileType
+        );
+
+    };
+
+
+    reader.readAsDataURL(file);
+
+} else {
+
+    completeSave(
+        title,
+        subject,
+        "",
+        "PDF"
+    );
+
+}
+
+}
+
+/* =========================
+COMPLETE SAVE
+========================= */
+
+function completeSave(
+title,
+subject,
+file,
+type
+) {
+
+if (editingId) {
+
+    const note =
+        notes.find(
+            n => n.id === editingId
+        );
+
+    note.title = title;
+    note.subject = subject;
+
+    if (file) {
+
+        note.file = file;
+        note.type = type;
+
+    }
+
+    showToast(
+        "Note updated ✨"
+    );
+
+} else {
+
+    notes.unshift({
+
+        id: Date.now(),
+
+        title: title,
+
+        subject: subject,
+
+        type: type,
+
+        file: file,
+
+        favorite: false
+
+    });
+
+    showToast(
+        "New note added 🎉"
+    );
+
+}
+
+
+localStorage.setItem(
+    "noteVaultNotes",
+    JSON.stringify(notes)
+);
+
+
+closeModal("noteModal");
+
+renderSubjects();
+renderNotes();
+
+}
+
+/* =========================
+EDIT
+========================= */
+
+function editNote(id) {
+
+if (!isAdmin) return;
+
+const note =
+    notes.find(
+        n => n.id === id
+    );
+
+editingId = id;
+
+document.getElementById("modalTitle")
+    .textContent = "Edit Note";
+
+document.getElementById("noteTitle")
+    .value = note.title;
+
+document.getElementById("noteSubject")
+    .value = note.subject;
+
+document.getElementById("noteFile")
+    .value = "";
+
+document.getElementById("fileName")
+    .textContent =
+    note.file
+    ? "Existing file attached"
+    : "";
+
+document.getElementById("noteModal")
+    .classList.add("show");
+
+}
+
+/* =========================
+DELETE
+========================= */
+
+function deleteNote(id) {
+
+if (!isAdmin) return;
+
+const note =
+    notes.find(
+        n => n.id === id
+    );
+
+
+if (
+    confirm(
+        `Delete "${note.title}"?`
+    )
+) {
+
+    notes =
+        notes.filter(
+            n => n.id !== id
+        );
+
+
+    localStorage.setItem(
+        "noteVaultNotes",
+        JSON.stringify(notes)
+    );
+
+
+    renderSubjects();
+    renderNotes();
+
+    showToast(
+        "Note deleted 🗑️"
+    );
+
+}
+
+}
+
+/* =========================
+FAVORITE
+========================= */
+
+function favoriteNote(id) {
+
+const note =
+    notes.find(
+        n => n.id === id
+    );
+
+note.favorite =
+    !note.favorite;
+
+
+localStorage.setItem(
+    "noteVaultNotes",
+    JSON.stringify(notes)
+);
+
+
+renderNotes();
+
+}
+
+/* =========================
+VIEW NOTE
+========================= */
+
+function viewNote(id) {
+
+const note =
+    notes.find(
+        n => n.id === id
+    );
+
+
+if (!note.file) {
+
+    showToast(
+        "No file attached"
+    );
+
+    return;
+}
+
+
+const win =
+    window.open();
+
+
+if (note.type === "IMAGE") {
+
+    win.document.write(`
+
+        <html>
+
+        <body
+            style="
+                margin:0;
+                background:#111;
+                display:grid;
+                place-items:center;
+            "
+        >
+
+            <img
+                src="${note.file}"
+                style="
+                    max-width:100%;
+                    max-height:100vh;
+                "
+            >
+
+        </body>
+
+        </html>
+
+    `);
+
+} else {
+
+    win.document.write(`
+
+        <iframe
+            src="${note.file}"
+            style="
+                width:100%;
+                height:100vh;
+                border:0;
+            "
+        ></iframe>
+
+    `);
+
+}
+
+}
+
+/* =========================
+FILE NAME
+========================= */
+
+document
+.getElementById("noteFile")
+.addEventListener(
+"change",
+function() {
+
+        if (this.files.length) {
+
+            document
+                .getElementById("fileName")
+                .textContent =
+                this.files[0].name;
+
+        }
+
+    }
+);
+
+/* =========================
+DARK MODE
+========================= */
+
+function toggleDark() {
+
+document.body
+    .classList
+    .toggle("dark");
+
+localStorage.setItem(
+    "darkMode",
+    document.body.classList.contains("dark")
+);
+
+}
+
+if (
+localStorage.getItem("darkMode")
+=== "true"
+) {
+
+document.body
+    .classList
+    .add("dark");
+
+}
+
+/* =========================
+MODAL
+========================= */
+
+function closeModal(id) {
+
+document
+    .getElementById(id)
+    .classList
+    .remove("show");
+
+}
+
+/* =========================
+TOAST
+========================= */
+
+let toastTimer;
+
+function showToast(message) {
+
+const toast =
+    document.getElementById("toast");
+
+toast.textContent = message;
+
+toast.classList.add("show");
+
+clearTimeout(toastTimer);
+
+
+toastTimer =
+    setTimeout(() => {
+
+        toast.classList.remove("show");
+
+    }, 2500);
+
+}
+
+/* =========================
+SECURITY / HTML
+========================= */
+
+function escapeHTML(str) {
+
+return String(str)
+
+    .replaceAll("&", "&amp;")
+
+    .replaceAll("<", "&lt;")
+
+    .replaceAll(">", "&gt;")
+
+    .replaceAll('"', "&quot;")
+
+    .replaceAll("'", "&#039;");
+
+}
+
+/* =========================
+START
+========================= */
+
+renderSubjects();
+renderNotes();
